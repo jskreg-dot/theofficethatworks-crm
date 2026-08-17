@@ -14,11 +14,11 @@ const PORT = process.env.PORT || 5000;
 // SQLite database path (file-based, persists data)
 const dbPath = path.join(__dirname, 'crm_database.db');
 
-// CORS middleware
+// CORS middleware - Allow all origins for demo
 app.use(cors({
-  origin: '*', // Allow all origins
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true,
+  credentials: false,
 }));
 
 app.use(express.json());
@@ -110,6 +110,20 @@ async function initializeDatabase() {
       )
     `);
     console.log('✓ Leads table ready');
+
+    // Create tasks table
+    await dbRun(`
+      CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        assigned_to TEXT,
+        due_date TEXT,
+        priority TEXT DEFAULT 'medium',
+        status TEXT DEFAULT 'open',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✓ Tasks table ready');
 
     dbInitialized = true;
     console.log('✓ Database initialization completed successfully');
@@ -278,9 +292,29 @@ app.post('/api/form-submission', async (req, res) => {
       [name, email, phone || null]
     );
 
+    // Send webhook to n8n workflow for Gmail notification
+    const n8nWebhookUrl = 'https://mvkjsk-2.app.n8n.cloud/webhook/crm-form-intake';
+    const webhookPayload = {
+      name: name,
+      email: email,
+      phone: phone || null,
+      message: message || null,
+      source: source || 'website',
+      submittedAt: new Date().toISOString()
+    };
+
+    // Send to n8n asynchronously (don't wait for response)
+    fetch(n8nWebhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(webhookPayload)
+    }).catch(err => console.error('n8n webhook error:', err));
+
     res.status(201).json({
       success: true,
-      message: 'Form submission received',
+      message: 'Form submission received and notification sent',
     });
   } catch (error) {
     console.error('Form submission error:', error);
@@ -289,17 +323,6 @@ app.post('/api/form-submission', async (req, res) => {
     });
   }
 });
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({
-    error: 'Internal server error',
-  });
-});
-
-
-// ============ TASK MANAGEMENT ============
 
 // Get all form submissions
 app.get('/api/form-submission', async (req, res) => {
@@ -324,47 +347,24 @@ app.get('/api/tasks', async (req, res) => {
       await initializeDatabase();
     }
 
-    const status = req.query.status;
-    let query = 'SELECT * FROM tasks ORDER BY due_date ASC';
-    let params = [];
-
-    if (status) {
-      query = 'SELECT * FROM tasks WHERE status = ? ORDER BY due_date ASC';
-      params = [status];
-    }
-
-    const tasks = await dbAll(query, params);
+    const tasks = await dbAll('SELECT * FROM tasks ORDER BY created_at DESC');
     res.json(tasks);
   } catch (error) {
     console.error('Tasks error:', error);
-    res.status(500).json({ error: 'Failed to fetch tasks' });
+    res.status(500).json({
+      error: 'Failed to fetch tasks',
+    });
   }
 });
 
-// Get single task
-app.get('/api/tasks/:id', async (req, res) => {
-  try {
-    if (!dbInitialized) {
-      await initializeDatabase();
-    }
-
-    const task = await dbGet('SELECT * FROM tasks WHERE id = ?', [req.params.id]);
-    if (!task) {
-      return res.status(404).json({ error: 'Task not found' });
-    }
-    res.json(task);
-  } catch (error) {
-    console.error('Get task error:', error);
-    res.status(500).json({ error: 'Failed to fetch task' });
-  }
-});
-
-// Create task
+// Create new task
 app.post('/api/tasks', async (req, res) => {
-  const { title, description, contact_id, lead_id, assigned_to, due_date, priority } = req.body;
+  const { title, assigned_to, due_date, priority, status } = req.body;
 
   if (!title) {
-    return res.status(400).json({ error: 'Title is required' });
+    return res.status(400).json({
+      error: 'Title is required',
+    });
   }
 
   try {
@@ -372,21 +372,31 @@ app.post('/api/tasks', async (req, res) => {
       await initializeDatabase();
     }
 
-    await dbRun(
-      'INSERT INTO tasks (title, description, contact_id, lead_id, assigned_to, due_date, priority, status, created_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
-      [title, description || null, contact_id || null, lead_id || null, assigned_to || null, due_date || null, priority || 'medium', 'open', 'API']
+    const result = await dbRun(
+      'INSERT INTO tasks (title, assigned_to, due_date, priority, status, created_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+      [title, assigned_to || null, due_date || null, priority || 'medium', status || 'open']
     );
-    
-    res.status(201).json({ success: true, message: 'Task created' });
+    res.status(201).json({
+      id: result.lastID,
+      title,
+      assigned_to,
+      due_date,
+      priority,
+      status,
+      created_at: new Date().toISOString()
+    });
   } catch (error) {
     console.error('Create task error:', error);
-    res.status(500).json({ error: 'Failed to create task' });
+    res.status(500).json({
+      error: 'Failed to create task',
+    });
   }
 });
 
 // Update task
 app.put('/api/tasks/:id', async (req, res) => {
-  const { title, description, assigned_to, due_date, priority, status } = req.body;
+  const { id } = req.params;
+  const { title, assigned_to, due_date, priority, status } = req.body;
 
   try {
     if (!dbInitialized) {
@@ -394,51 +404,75 @@ app.put('/api/tasks/:id', async (req, res) => {
     }
 
     await dbRun(
-      'UPDATE tasks SET title = ?, description = ?, assigned_to = ?, due_date = ?, priority = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [title, description, assigned_to, due_date, priority, status, req.params.id]
+      'UPDATE tasks SET title = ?, assigned_to = ?, due_date = ?, priority = ?, status = ? WHERE id = ?',
+      [title, assigned_to, due_date, priority, status, id]
     );
-    
-    res.json({ success: true, message: 'Task updated' });
+    res.json({
+      success: true,
+      message: 'Task updated',
+    });
   } catch (error) {
     console.error('Update task error:', error);
-    res.status(500).json({ error: 'Failed to update task' });
-  }
-});
-
-// Mark task complete
-app.post('/api/tasks/:id/complete', async (req, res) => {
-  try {
-    if (!dbInitialized) {
-      await initializeDatabase();
-    }
-
-    await dbRun(
-      'UPDATE tasks SET status = ?, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      ['completed', req.params.id]
-    );
-    
-    res.json({ success: true, message: 'Task marked complete' });
-  } catch (error) {
-    console.error('Complete task error:', error);
-    res.status(500).json({ error: 'Failed to complete task' });
+    res.status(500).json({
+      error: 'Failed to update task',
+    });
   }
 });
 
 // Delete task
 app.delete('/api/tasks/:id', async (req, res) => {
+  const { id } = req.params;
+
   try {
     if (!dbInitialized) {
       await initializeDatabase();
     }
 
-    await dbRun('DELETE FROM tasks WHERE id = ?', [req.params.id]);
-    res.json({ success: true, message: 'Task deleted' });
+    await dbRun('DELETE FROM tasks WHERE id = ?', [id]);
+    res.json({
+      success: true,
+      message: 'Task deleted',
+    });
   } catch (error) {
     console.error('Delete task error:', error);
-    res.status(500).json({ error: 'Failed to delete task' });
+    res.status(500).json({
+      error: 'Failed to delete task',
+    });
   }
 });
 
+// Mark task as complete
+app.post('/api/tasks/:id/complete', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    if (!dbInitialized) {
+      await initializeDatabase();
+    }
+
+    await dbRun(
+      'UPDATE tasks SET status = ? WHERE id = ?',
+      ['completed', id]
+    );
+    res.json({
+      success: true,
+      message: 'Task marked as complete',
+    });
+  } catch (error) {
+    console.error('Complete task error:', error);
+    res.status(500).json({
+      error: 'Failed to complete task',
+    });
+  }
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+  });
+});
 
 // Start server immediately (don't block on database initialization)
 app.listen(PORT, () => {
