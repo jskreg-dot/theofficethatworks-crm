@@ -16,7 +16,7 @@ const dbPath = path.join(__dirname, 'crm_database.db');
 
 // CORS middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://lively-pony-51b622.netlify.app',
+  origin: '*', // Allow all origins
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true,
 }));
