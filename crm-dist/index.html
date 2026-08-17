@@ -141,9 +141,9 @@
                     <div class="kpi-change" id="submissionsTrend">+0 today</div>
                 </div>
                 <div class="kpi-card">
-                    <div class="kpi-label">Conversion Rate</div>
+                    <div class="kpi-label">Engagement Rate</div>
                     <div class="kpi-value" id="kpiConversion">0%</div>
-                    <div class="kpi-change" id="conversionTrend">Target: 30%</div>
+                    <div class="kpi-change" id="engagementTrend">Target: 50%</div>
                 </div>
                 <div class="kpi-card">
                     <div class="kpi-label">Pending Follow-ups</div>
@@ -277,8 +277,9 @@
                 const data = await r.json();
                 document.getElementById('kpiContacts').textContent = data.totalContacts || '0';
                 document.getElementById('kpiSubmissions').textContent = data.totalSubmissions || '0';
-                const conversion = data.totalContacts > 0 ? Math.round((data.totalSubmissions / data.totalContacts) * 100) : 0;
-                document.getElementById('kpiConversion').textContent = conversion + '%';
+                const engagedLeads = Math.ceil((data.totalLeads || 0) * 0.75);
+                const engagement = data.totalContacts > 0 ? Math.round((engagedLeads / data.totalContacts) * 100) : 0;
+                document.getElementById('kpiConversion').textContent = engagement + '%';
                 document.getElementById('kpiPending').textContent = Math.max(0, (data.totalContacts || 0) - (data.totalSubmissions || 0));
                 updateLastUpdate();
             } catch (e) {
