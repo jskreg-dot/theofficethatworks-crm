@@ -470,7 +470,102 @@
             loadDashboard();
             loadContacts();
         }, 30000);
-    </script>
+    
+
+        // ===== TASK MANAGEMENT FUNCTIONS =====
+        function openTaskModal() {
+            document.getElementById('taskModal').style.display = 'flex';
+            document.getElementById('taskForm').reset();
+        }
+        
+        function closeTaskModal() {
+            document.getElementById('taskModal').style.display = 'none';
+        }
+        
+        function submitTask(event) {
+            event.preventDefault();
+            const title = document.getElementById('taskTitle').value;
+            const description = document.getElementById('taskDescription').value;
+            const assignedTo = document.getElementById('taskAssignedTo').value;
+            const dueDate = document.getElementById('taskDueDate').value;
+            const priority = document.getElementById('taskPriority').value;
+            
+            fetch('https://officegenie-crm-backend.onrender.com/api/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, description, assigned_to: assignedTo, due_date: dueDate, priority })
+            })
+            .then(r => r.json())
+            .then(data => {
+                closeTaskModal();
+                loadTasks();
+                alert('Task created!');
+            })
+            .catch(e => alert('Error creating task'));
+        }
+        
+        function loadTasks() {
+            fetch('https://officegenie-crm-backend.onrender.com/api/tasks')
+                .then(r => r.json())
+                .then(tasks => {
+                    const tbody = document.getElementById('tasks-table-body');
+                    if (!tasks || tasks.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;">No tasks yet. Click "+ New Task" to create one!</td></tr>';
+                    } else {
+                        tbody.innerHTML = tasks.map(task => {
+                            const statusColor = task.status === 'completed' ? '#10b981' : task.status === 'in_progress' ? '#f59e0b' : '#3b82f6';
+                            const priorityColor = task.priority === 'urgent' ? '#ef4444' : task.priority === 'high' ? '#f59e0b' : task.priority === 'medium' ? '#6366f1' : '#10b981';
+                            return '<tr style="border-bottom:1px solid #eee;"><td style="padding:12px;">' + task.title + '</td><td style="padding:12px;">' + (task.assigned_to || '-') + '</td><td style="padding:12px;">' + (task.due_date || '-') + '</td><td style="padding:12px;"><span style="background:' + priorityColor + ';color:white;padding:2px 6px;border-radius:3px;font-size:11px;">' + task.priority + '</span></td><td style="padding:12px;"><span style="background:' + statusColor + ';color:white;padding:2px 6px;border-radius:3px;font-size:11px;">' + task.status + '</span></td><td style="padding:12px;"><button onclick="completeTask(' + task.id + ')" style="background:#10b981;color:white;padding:4px 8px;border:none;border-radius:3px;cursor:pointer;font-size:11px;margin-right:5px;">Done</button><button onclick="deleteTask(' + task.id + ')" style="background:#ef4444;color:white;padding:4px 8px;border:none;border-radius:3px;cursor:pointer;font-size:11px;">Delete</button></td></tr>';
+                        }).join('');
+                    }
+                })
+                .catch(e => {
+                    document.getElementById('tasks-table-body').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;">Error loading tasks</td></tr>';
+                });
+        }
+        
+        function completeTask(taskId) {
+            fetch('https://officegenie-crm-backend.onrender.com/api/tasks/' + taskId + '/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(() => loadTasks())
+            .catch(e => alert('Error completing task'));
+        }
+        
+        function deleteTask(taskId) {
+            if (confirm('Delete this task?')) {
+                fetch('https://officegenie-crm-backend.onrender.com/api/tasks/' + taskId, {
+                    method: 'DELETE'
+                })
+                .then(() => loadTasks())
+                .catch(e => alert('Error deleting task'));
+            }
+        }
+        
+        function filterTasks() {
+            const status = document.getElementById('taskStatusFilter').value;
+            fetch('https://officegenie-crm-backend.onrender.com/api/tasks' + (status ? '?status=' + status : ''))
+                .then(r => r.json())
+                .then(tasks => {
+                    const tbody = document.getElementById('tasks-table-body');
+                    if (!tasks || tasks.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;">No tasks found</td></tr>';
+                    } else {
+                        tbody.innerHTML = tasks.map(task => {
+                            const statusColor = task.status === 'completed' ? '#10b981' : task.status === 'in_progress' ? '#f59e0b' : '#3b82f6';
+                            const priorityColor = task.priority === 'urgent' ? '#ef4444' : task.priority === 'high' ? '#f59e0b' : task.priority === 'medium' ? '#6366f1' : '#10b981';
+                            return '<tr style="border-bottom:1px solid #eee;"><td style="padding:12px;">' + task.title + '</td><td style="padding:12px;">' + (task.assigned_to || '-') + '</td><td style="padding:12px;">' + (task.due_date || '-') + '</td><td style="padding:12px;"><span style="background:' + priorityColor + ';color:white;padding:2px 6px;border-radius:3px;font-size:11px;">' + task.priority + '</span></td><td style="padding:12px;"><span style="background:' + statusColor + ';color:white;padding:2px 6px;border-radius:3px;font-size:11px;">' + task.status + '</span></td><td style="padding:12px;"><button onclick="completeTask(' + task.id + ')" style="background:#10b981;color:white;padding:4px 8px;border:none;border-radius:3px;cursor:pointer;font-size:11px;margin-right:5px;">Done</button><button onclick="deleteTask(' + task.id + ')" style="background:#ef4444;color:white;padding:4px 8px;border:none;border-radius:3px;cursor:pointer;font-size:11px;">Delete</button></td></tr>';
+                        }).join('');
+                    }
+                })
+                .catch(e => {
+                    document.getElementById('tasks-table-body').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;">Error loading tasks</td></tr>';
+                });
+        }
+
+
+</script>
 </body>
 </html>
 
