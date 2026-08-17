@@ -10,5 +10,8 @@
   ],
   "env": {
     "NEXT_PUBLIC_API_URL": "https://officegenie-crm-backend.onrender.com"
+  },
+  "buildCache": {
+    "ignore": ["node_modules/**", ".git/**"]
   }
 }
