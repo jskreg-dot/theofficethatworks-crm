@@ -495,23 +495,49 @@ app.post('/api/cleanup-duplicates', async (req, res) => {
       await initializeDatabase();
     }
 
-    // Delete duplicate form submissions (keep only the most recent per email)
-    const deleteSubmissions = await dbRun(`
-      DELETE FROM form_submissions
-      WHERE id NOT IN (
-        SELECT MAX(id) FROM form_submissions
-        GROUP BY email
-      )
-    `);
+    // Get all submissions and find ones to delete
+    const allSubmissions = await dbAll('SELECT id, email FROM form_submissions ORDER BY id DESC');
+    const seenEmails = new Set();
+    const idsToKeep = [];
 
-    // Delete duplicate contacts (keep only the most recent per email)
-    const deleteContacts = await dbRun(`
-      DELETE FROM contacts
-      WHERE id NOT IN (
-        SELECT MAX(id) FROM contacts
-        GROUP BY email
-      )
-    `);
+    for (const submission of allSubmissions) {
+      if (!seenEmails.has(submission.email)) {
+        idsToKeep.push(submission.id);
+        seenEmails.add(submission.email);
+      }
+    }
+
+    let submissionsDeleted = 0;
+    if (idsToKeep.length > 0) {
+      const placeholders = idsToKeep.map(() => '?').join(',');
+      const deleteResult = await dbRun(
+        `DELETE FROM form_submissions WHERE id NOT IN (${placeholders})`,
+        idsToKeep
+      );
+      submissionsDeleted = deleteResult.changes;
+    }
+
+    // Get all contacts and find ones to delete
+    const allContacts = await dbAll('SELECT id, email FROM contacts ORDER BY id DESC');
+    const seenContactEmails = new Set();
+    const contactIdsToKeep = [];
+
+    for (const contact of allContacts) {
+      if (!seenContactEmails.has(contact.email)) {
+        contactIdsToKeep.push(contact.id);
+        seenContactEmails.add(contact.email);
+      }
+    }
+
+    let contactsDeleted = 0;
+    if (contactIdsToKeep.length > 0) {
+      const placeholders = contactIdsToKeep.map(() => '?').join(',');
+      const deleteResult = await dbRun(
+        `DELETE FROM contacts WHERE id NOT IN (${placeholders})`,
+        contactIdsToKeep
+      );
+      contactsDeleted = deleteResult.changes;
+    }
 
     // Get counts after cleanup
     const submissionsCount = await dbGet('SELECT COUNT(*) as count FROM form_submissions');
@@ -521,8 +547,8 @@ app.post('/api/cleanup-duplicates', async (req, res) => {
       success: true,
       message: 'Database cleanup completed',
       deleted: {
-        submissions: deleteSubmissions.changes,
-        contacts: deleteContacts.changes
+        submissions: submissionsDeleted,
+        contacts: contactsDeleted
       },
       remaining: {
         submissions: submissionsCount?.count || 0,
