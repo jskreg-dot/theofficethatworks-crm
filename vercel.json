@@ -1,5 +1,5 @@
 {
-  "buildCommand": "",
+  "buildCommand": "echo Building static site",
   "outputDirectory": "crm-dist",
   "public": true,
   "rewrites": [
@@ -10,8 +10,5 @@
   ],
   "env": {
     "NEXT_PUBLIC_API_URL": "https://officegenie-crm-backend.onrender.com"
-  },
-  "buildCache": {
-    "ignore": ["node_modules/**", ".git/**"]
   }
 }
