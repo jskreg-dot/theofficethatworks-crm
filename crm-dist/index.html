@@ -638,6 +638,35 @@
             }
         }
 
+        async function loadSubmissions() {
+            let submissions;
+            try {
+                const r = await fetch(`${API_URL}/api/form-submission`);
+                submissions = await r.json();
+            } catch (e) {
+                console.error('Submissions error:', e);
+                submissions = [];
+            }
+
+            const tbody = document.getElementById('submissionsBody');
+            if (!submissions || submissions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No submissions yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = submissions.map(s => {
+                return `
+                    <tr>
+                        <td><strong>${s.name || 'N/A'}</strong></td>
+                        <td>${s.email || 'N/A'}</td>
+                        <td>${s.source || 'website'}</td>
+                        <td>${s.message ? s.message.substring(0, 50) + (s.message.length > 50 ? '...' : '') : '-'}</td>
+                        <td>${s.created_at ? new Date(s.created_at).toLocaleDateString() : '-'}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
         async function loadTasks() {
             try {
                 const r = await fetch(`${API_URL}/api/tasks`);
@@ -719,6 +748,7 @@
         window.addEventListener('load', () => {
             loadDashboard();
             loadContacts();
+            loadSubmissions();
             loadTasks();
             initCharts();
         });
@@ -726,8 +756,9 @@
         setInterval(() => {
             loadDashboard();
             loadContacts();
+            loadSubmissions();
             loadTasks();
         }, 30000);
     </script>
 </body>
-</html><!-- FORCE REBUILD: 2026-08-17 -->
+</html>
