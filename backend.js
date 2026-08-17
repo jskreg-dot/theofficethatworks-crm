@@ -298,6 +298,132 @@ app.use((err, req, res, next) => {
   });
 });
 
+
+// ============ TASK MANAGEMENT ============
+
+// Get all tasks
+app.get('/api/tasks', async (req, res) => {
+  try {
+    if (!dbInitialized) {
+      await initializeDatabase();
+    }
+
+    const status = req.query.status;
+    let query = 'SELECT * FROM tasks ORDER BY due_date ASC';
+    let params = [];
+
+    if (status) {
+      query = 'SELECT * FROM tasks WHERE status = ? ORDER BY due_date ASC';
+      params = [status];
+    }
+
+    const tasks = await dbAll(query, params);
+    res.json(tasks);
+  } catch (error) {
+    console.error('Tasks error:', error);
+    res.status(500).json({ error: 'Failed to fetch tasks' });
+  }
+});
+
+// Get single task
+app.get('/api/tasks/:id', async (req, res) => {
+  try {
+    if (!dbInitialized) {
+      await initializeDatabase();
+    }
+
+    const task = await dbGet('SELECT * FROM tasks WHERE id = ?', [req.params.id]);
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    res.json(task);
+  } catch (error) {
+    console.error('Get task error:', error);
+    res.status(500).json({ error: 'Failed to fetch task' });
+  }
+});
+
+// Create task
+app.post('/api/tasks', async (req, res) => {
+  const { title, description, contact_id, lead_id, assigned_to, due_date, priority } = req.body;
+
+  if (!title) {
+    return res.status(400).json({ error: 'Title is required' });
+  }
+
+  try {
+    if (!dbInitialized) {
+      await initializeDatabase();
+    }
+
+    await dbRun(
+      'INSERT INTO tasks (title, description, contact_id, lead_id, assigned_to, due_date, priority, status, created_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+      [title, description || null, contact_id || null, lead_id || null, assigned_to || null, due_date || null, priority || 'medium', 'open', 'API']
+    );
+    
+    res.status(201).json({ success: true, message: 'Task created' });
+  } catch (error) {
+    console.error('Create task error:', error);
+    res.status(500).json({ error: 'Failed to create task' });
+  }
+});
+
+// Update task
+app.put('/api/tasks/:id', async (req, res) => {
+  const { title, description, assigned_to, due_date, priority, status } = req.body;
+
+  try {
+    if (!dbInitialized) {
+      await initializeDatabase();
+    }
+
+    await dbRun(
+      'UPDATE tasks SET title = ?, description = ?, assigned_to = ?, due_date = ?, priority = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [title, description, assigned_to, due_date, priority, status, req.params.id]
+    );
+    
+    res.json({ success: true, message: 'Task updated' });
+  } catch (error) {
+    console.error('Update task error:', error);
+    res.status(500).json({ error: 'Failed to update task' });
+  }
+});
+
+// Mark task complete
+app.post('/api/tasks/:id/complete', async (req, res) => {
+  try {
+    if (!dbInitialized) {
+      await initializeDatabase();
+    }
+
+    await dbRun(
+      'UPDATE tasks SET status = ?, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      ['completed', req.params.id]
+    );
+    
+    res.json({ success: true, message: 'Task marked complete' });
+  } catch (error) {
+    console.error('Complete task error:', error);
+    res.status(500).json({ error: 'Failed to complete task' });
+  }
+});
+
+// Delete task
+app.delete('/api/tasks/:id', async (req, res) => {
+  try {
+    if (!dbInitialized) {
+      await initializeDatabase();
+    }
+
+    await dbRun('DELETE FROM tasks WHERE id = ?', [req.params.id]);
+    res.json({ success: true, message: 'Task deleted' });
+  } catch (error) {
+    console.error('Delete task error:', error);
+    res.status(500).json({ error: 'Failed to delete task' });
+  }
+});
+
+
 // Start server immediately (don't block on database initialization)
 app.listen(PORT, () => {
   console.log(`\n${'='.repeat(60)}`);
