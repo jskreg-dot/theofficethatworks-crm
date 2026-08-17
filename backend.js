@@ -301,6 +301,22 @@ app.use((err, req, res, next) => {
 
 // ============ TASK MANAGEMENT ============
 
+// Get all form submissions
+app.get('/api/form-submission', async (req, res) => {
+  try {
+    if (!dbInitialized) {
+      await initializeDatabase();
+    }
+    const submissions = await dbAll('SELECT * FROM form_submissions ORDER BY created_at DESC');
+    res.json(submissions);
+  } catch (error) {
+    console.error('Form submissions error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch form submissions',
+    });
+  }
+});
+
 // Get all tasks
 app.get('/api/tasks', async (req, res) => {
   try {
