@@ -121,6 +121,8 @@
         <div class="nav-tabs">
             <button class="tab-btn active" data-tab="overview">Dashboard</button>
             <button class="tab-btn" data-tab="contacts">All Contacts</button>
+            <button class="tab-btn" data-tab="leads">Leads</button>
+            <button class="tab-btn" data-tab="submissions">Submissions</button>
             <button class="tab-btn" data-tab="tasks">Tasks</button>
             <button class="tab-btn" data-tab="submit">Submit Lead</button>
         </div>
@@ -206,6 +208,49 @@
                     </thead>
                     <tbody id="allContactsBody">
                         <tr><td colspan="6" class="empty-state">Loading contacts...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Leads Tab -->
+        <div id="leads" class="tab-content" style="display:none;">
+            <div class="table-section">
+                <h2>Leads Pipeline</h2>
+                <table id="leadsTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Service</th>
+                            <th>Status</th>
+                            <th>Date Added</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leadsBody">
+                        <tr><td colspan="6" class="empty-state">Loading leads...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Submissions Tab -->
+        <div id="submissions" class="tab-content" style="display:none;">
+            <div class="table-section">
+                <h2>Form Submissions</h2>
+                <table id="submissionsTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Service Type</th>
+                            <th>Message</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="submissionsBody">
+                        <tr><td colspan="5" class="empty-state">Loading submissions...</td></tr>
                     </tbody>
                 </table>
             </div>
