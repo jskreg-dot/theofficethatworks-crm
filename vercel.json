@@ -1,0 +1,14 @@
+{
+  "buildCommand": "",
+  "outputDirectory": "crm-dist",
+  "public": true,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://officegenie-crm-backend.onrender.com"
+  }
+}
