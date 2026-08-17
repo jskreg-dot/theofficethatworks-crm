@@ -234,6 +234,28 @@ app.post('/api/contacts', async (req, res) => {
   }
 });
 
+// Delete contact by ID
+app.delete('/api/contacts/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    if (!dbInitialized) {
+      await initializeDatabase();
+    }
+
+    await dbRun('DELETE FROM contacts WHERE id = ?', [id]);
+    res.json({
+      success: true,
+      message: 'Contact deleted',
+    });
+  } catch (error) {
+    console.error('Delete contact error:', error);
+    res.status(500).json({
+      error: 'Failed to delete contact',
+    });
+  }
+});
+
 // Create new lead
 app.post('/api/leads', async (req, res) => {
   const { name, email, phone, company, status } = req.body;
@@ -462,6 +484,56 @@ app.post('/api/tasks/:id/complete', async (req, res) => {
     console.error('Complete task error:', error);
     res.status(500).json({
       error: 'Failed to complete task',
+    });
+  }
+});
+
+// Database cleanup endpoint (remove duplicate submissions and contacts)
+app.post('/api/cleanup-duplicates', async (req, res) => {
+  try {
+    if (!dbInitialized) {
+      await initializeDatabase();
+    }
+
+    // Delete duplicate form submissions (keep only the most recent per email)
+    const deleteSubmissions = await dbRun(`
+      DELETE FROM form_submissions
+      WHERE id NOT IN (
+        SELECT MAX(id) FROM form_submissions
+        GROUP BY email
+      )
+    `);
+
+    // Delete duplicate contacts (keep only the most recent per email)
+    const deleteContacts = await dbRun(`
+      DELETE FROM contacts
+      WHERE id NOT IN (
+        SELECT MAX(id) FROM contacts
+        GROUP BY email
+      )
+    `);
+
+    // Get counts after cleanup
+    const submissionsCount = await dbGet('SELECT COUNT(*) as count FROM form_submissions');
+    const contactsCount = await dbGet('SELECT COUNT(*) as count FROM contacts');
+
+    res.json({
+      success: true,
+      message: 'Database cleanup completed',
+      deleted: {
+        submissions: deleteSubmissions.changes,
+        contacts: deleteContacts.changes
+      },
+      remaining: {
+        submissions: submissionsCount?.count || 0,
+        contacts: contactsCount?.count || 0
+      }
+    });
+  } catch (error) {
+    console.error('Cleanup error:', error);
+    res.status(500).json({
+      error: 'Failed to cleanup database',
+      message: error.message
     });
   }
 });
