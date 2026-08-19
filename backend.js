@@ -297,6 +297,13 @@ app.post('/api/form-submission', async (req, res) => {
     });
   }
 
+  // Check rate limit: max 5 submissions per hour per email
+  if (!checkSubmissionRateLimit(email, 5)) {
+    return res.status(429).json({
+      error: 'Too many submissions from this email. Maximum 5 per hour allowed.',
+    });
+  }
+
   try {
     if (!dbInitialized) {
       await initializeDatabase();

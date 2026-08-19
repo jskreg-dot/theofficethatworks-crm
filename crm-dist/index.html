@@ -124,7 +124,6 @@
             <button class="tab-btn" data-tab="leads">Leads</button>
             <button class="tab-btn" data-tab="submissions">Submissions</button>
             <button class="tab-btn" data-tab="tasks">Tasks</button>
-            <button class="tab-btn" data-tab="submit">Submit Lead</button>
         </div>
 
         <!-- Overview Tab -->
@@ -256,48 +255,6 @@
             </div>
         </div>
 
-        <!-- Submit Tab -->
-        <div id="submit" class="tab-content" style="display:none; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-            <h2 style="margin-bottom: 20px;">Submit a New Lead</h2>
-            <div class="status" id="status"></div>
-            <form id="contactForm" style="max-width: 600px;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                    <div>
-                        <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">First Name *</label>
-                        <input type="text" id="firstName" required style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">Last Name *</label>
-                        <input type="text" id="lastName" required style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
-                    </div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                    <div>
-                        <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">Email *</label>
-                        <input type="email" id="email" required style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">Phone</label>
-                        <input type="tel" id="phone" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
-                    </div>
-                </div>
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">Service Type</label>
-                    <select id="service" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
-                        <option value="">Select...</option>
-                        <option value="Real Estate">Real Estate</option>
-                        <option value="Home Services">Home Services</option>
-                        <option value="Property Management">Property Management</option>
-                    </select>
-                </div>
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">Message</label>
-                    <textarea id="message" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; min-height: 120px;"></textarea>
-                </div>
-                <button type="submit" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 14px 30px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 16px;">Submit Lead</button>
-            </form>
-        </div>
-
         <!-- Tasks Tab -->
         <div id="tasks" class="tab-content" style="display: none;">
             <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
@@ -336,7 +293,7 @@
         <!-- Task Modal -->
         <div id="taskModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; padding: 20px;">
             <div style="background: white; padding: 30px; border-radius: 12px; width: 100%; max-width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
-                <h2 style="margin-top: 0; margin-bottom: 20px;">Create New Task</h2>
+                <h2 id="taskModalTitle" style="margin-top: 0; margin-bottom: 20px;">Create New Task</h2>
                 <form id="taskForm" onsubmit="submitTask(event)">
                     <div style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">Task Title *</label>
@@ -368,9 +325,10 @@
                         </select>
                     </div>
 
+                    <input type="hidden" id="editTaskId" value="">
                     <div style="display: flex; gap: 10px; justify-content: flex-end;">
                         <button type="button" onclick="closeTaskModal()" style="padding: 10px 20px; background: #e0e0e0; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px;">Cancel</button>
-                        <button type="submit" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px;">Create Task</button>
+                        <button type="submit" id="taskSubmitBtn" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px;">Create Task</button>
                     </div>
                 </form>
             </div>
@@ -561,80 +519,91 @@
             }
         }
 
-        document.getElementById('contactForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = {
-                name: `${document.getElementById('firstName').value} ${document.getElementById('lastName').value}`,
-                email: document.getElementById('email').value,
-                phone: document.getElementById('phone').value || null,
-                message: `Service: ${document.getElementById('service').value}\n\n${document.getElementById('message').value}`,
-                source: 'website'
-            };
-
-            try {
-                const s = document.getElementById('status');
-                s.textContent = 'Submitting...';
-                s.className = 'status loading';
-                s.style.background = '#e3f2fd';
-                s.style.color = '#1976d2';
-                s.style.padding = '15px';
-                s.style.borderRadius = '8px';
-                s.style.display = 'block';
-                s.style.marginBottom = '20px';
-
-                const r = await fetch(`${API_URL}/api/form-submission`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(formData)
-                });
-
-                if (!r.ok) throw new Error('Submission failed');
-
-                s.textContent = '✓ Lead submitted successfully!';
-                s.style.background = '#e8f5e9';
-                s.style.color = '#388e3c';
-                document.getElementById('contactForm').reset();
-                setTimeout(() => { s.style.display = 'none'; loadDashboard(); }, 3000);
-            } catch (e) {
-                s.textContent = `Error: ${e.message}`;
-                s.style.background = '#fff3e0';
-                s.style.color = '#f57c00';
-            }
-        });
-
         // Task Management Functions
         function openTaskModal() {
             document.getElementById('taskModal').style.display = 'flex';
+            document.getElementById('editTaskId').value = '';
+            document.getElementById('taskModalTitle').textContent = 'Create New Task';
+            document.getElementById('taskSubmitBtn').textContent = 'Create Task';
+            document.getElementById('taskForm').reset();
         }
 
         function closeTaskModal() {
             document.getElementById('taskModal').style.display = 'none';
             document.getElementById('taskForm').reset();
+            document.getElementById('editTaskId').value = '';
+        }
+
+        async function editTask(id) {
+            try {
+                const r = await fetch(`${API_URL}/api/tasks`);
+                const tasks = await r.json();
+                const task = tasks.find(t => t.id === id);
+
+                if (!task) {
+                    alert('Task not found');
+                    return;
+                }
+
+                // Fill form with task data
+                document.getElementById('taskTitle').value = task.title || '';
+                document.getElementById('taskDescription').value = task.description || '';
+                document.getElementById('taskAssignedTo').value = task.assigned_to || '';
+                document.getElementById('taskDueDate').value = task.due_date || '';
+                document.getElementById('taskPriority').value = task.priority || 'medium';
+                document.getElementById('editTaskId').value = id;
+
+                // Update modal title and button
+                document.getElementById('taskModalTitle').textContent = 'Edit Task';
+                document.getElementById('taskSubmitBtn').textContent = 'Update Task';
+
+                // Open modal
+                document.getElementById('taskModal').style.display = 'flex';
+            } catch (e) {
+                alert('Error loading task: ' + e.message);
+            }
         }
 
         async function submitTask(event) {
             event.preventDefault();
+            const editTaskId = document.getElementById('editTaskId').value;
             const task = {
                 title: document.getElementById('taskTitle').value,
                 description: document.getElementById('taskDescription').value,
                 assigned_to: document.getElementById('taskAssignedTo').value,
                 due_date: document.getElementById('taskDueDate').value,
-                priority: document.getElementById('taskPriority').value,
-                status: 'open'
+                priority: document.getElementById('taskPriority').value
             };
 
             try {
-                const r = await fetch(`${API_URL}/api/tasks`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(task)
-                });
+                let r;
+                if (editTaskId) {
+                    // Update existing task
+                    task.status = document.getElementById('taskStatus') ? document.getElementById('taskStatus').value : 'open';
+                    r = await fetch(`${API_URL}/api/tasks/${editTaskId}`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(task)
+                    });
+                } else {
+                    // Create new task
+                    task.status = 'open';
+                    r = await fetch(`${API_URL}/api/tasks`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(task)
+                    });
+                }
+
                 if (r.ok) {
                     closeTaskModal();
                     loadTasks();
+                } else {
+                    const err = await r.text();
+                    alert('Error saving task: ' + err);
                 }
             } catch (e) {
-                alert('Error creating task: ' + e.message);
+                alert('Error saving task: ' + e.message);
             }
         }
 
@@ -703,6 +672,7 @@
                         <td style="padding: 15px; border-bottom: 1px solid #e0e0e0;"><span style="background: ${statusColor}20; color: ${statusColor}; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; text-transform: capitalize;">${t.status || 'open'}</span></td>
                         <td style="padding: 15px; border-bottom: 1px solid #e0e0e0;">
                             ${t.status !== 'completed' ? `<button class="btn btn-primary btn-small" onclick="completeTask(${t.id})">Complete</button>` : '<span style="color: #999; font-size: 12px;">Done</span>'}
+                            <button class="btn btn-small" style="background: #667eea; color: white; margin-left: 5px;" onclick="editTask(${t.id})">Edit</button>
                             <button class="btn btn-small" style="background: #f44336; color: white; margin-left: 5px;" onclick="deleteTask(${t.id})">Delete</button>
                         </td>
                     </tr>
