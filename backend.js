@@ -116,6 +116,7 @@ async function initializeDatabase() {
       CREATE TABLE IF NOT EXISTS tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
+                description TEXT,
         assigned_to TEXT,
         due_date TEXT,
         priority TEXT DEFAULT 'medium',
@@ -388,7 +389,7 @@ app.get('/api/tasks', async (req, res) => {
 
 // Create new task
 app.post('/api/tasks', async (req, res) => {
-  const { title, assigned_to, due_date, priority, status } = req.body;
+  const { title, description, assigned_to, due_date, priority, status } = req.body;
 
   if (!title) {
     return res.status(400).json({
@@ -402,9 +403,9 @@ app.post('/api/tasks', async (req, res) => {
     }
 
     const result = await dbRun(
-      'INSERT INTO tasks (title, assigned_to, due_date, priority, status, created_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
-      [title, assigned_to || null, due_date || null, priority || 'medium', status || 'open']
-    );
+      'INSERT INTO tasks (title, description, assigned_to, due_date, priority, status, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',      [title, assigned_to || null, due_date || null, priority || 'medium', status || 'open']
+    
+          [title, description || null, assigned_to || null, due_date || null, priority || 'medium', status || 'open']);
     res.status(201).json({
       id: result.lastID,
       title,
@@ -425,7 +426,7 @@ app.post('/api/tasks', async (req, res) => {
 // Update task
 app.put('/api/tasks/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, assigned_to, due_date, priority, status } = req.body;
+  const { title, description, assigned_to, due_date, priority, status } = req.body;
 
   try {
     if (!dbInitialized) {
@@ -433,10 +434,8 @@ app.put('/api/tasks/:id', async (req, res) => {
     }
 
     await dbRun(
-      'UPDATE tasks SET title = ?, assigned_to = ?, due_date = ?, priority = ?, status = ? WHERE id = ?',
-      [title, assigned_to, due_date, priority, status, id]
-    );
-    res.json({
+      'UPDATE tasks SET title = ?, description = ?, assigned_to = ?, due_date = ?, priority = ?, status = ? WHERE id = ?',      [title, assigned_to, due_date, priority, status, id]
+      [title, description || null, assigned_to, due_date, priority, status, id]    res.json({
       success: true,
       message: 'Task updated',
     });
