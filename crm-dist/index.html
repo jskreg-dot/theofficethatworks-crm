@@ -297,7 +297,6 @@
                 <button type="submit" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 14px 30px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 16px;">Submit Lead</button>
             </form>
         </div>
-
         <!-- Tasks Tab -->
         <div id="tasks" class="tab-content" style="display: none;">
             <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
@@ -339,7 +338,7 @@
                 <h2 id="taskModalTitle" style="margin-top: 0; margin-bottom: 20px;">Create New Task</h2>
                 <form id="taskForm" onsubmit="submitTask(event)">
                     <input type="hidden" id="taskId" value="">
-
+                    <input type="hidden" id="editTaskId" value="">
                     <div style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">Task Title *</label>
                         <input type="text" id="taskTitle" required placeholder="Enter task title" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
@@ -360,7 +359,7 @@
                         <input type="date" id="taskDueDate" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
                     </div>
 
-                    <div style="margin-bottom: 15px;">
+                    <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">Priority</label>
                         <select id="taskPriority" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
                             <option value="low">Low Priority</option>
@@ -378,7 +377,6 @@
                             <option value="completed">Completed</option>
                         </select>
                     </div>
-
                     <div style="display: flex; gap: 10px; justify-content: flex-end;">
                         <button type="button" onclick="closeTaskModal()" style="padding: 10px 20px; background: #e0e0e0; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px;">Cancel</button>
                         <button type="submit" id="taskSubmitBtn" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px;">Create Task</button>
@@ -410,7 +408,6 @@
             try {
                 const r = await fetch(`${API_URL}/api/dashboard`);
                 const data = await r.json();
-
                 const totalContacts = data.totalContacts || 0;
                 const totalSubmissions = data.totalSubmissions || 0;
                 const totalLeads = data.totalLeads || 0;
@@ -431,7 +428,6 @@
                 // Calculate pending (submissions not yet converted to leads)
                 const pending = Math.max(0, totalSubmissions - totalLeads);
                 document.getElementById('kpiPending').textContent = pending;
-
                 updateLastUpdate();
             } catch (e) {
                 console.error('Dashboard error:', e);
@@ -571,7 +567,6 @@
                 }
             }
         }
-
         function initCharts() {
             const submissionCtx = document.getElementById('submissionsChart');
             if (submissionsChart) submissionsChart.destroy();
@@ -733,6 +728,7 @@
         // Task Management Functions
         function openTaskModal() {
             document.getElementById('taskId').value = '';
+            document.getElementById('editTaskId').value = '';
             document.getElementById('taskModalTitle').textContent = 'Create New Task';
             document.getElementById('taskSubmitBtn').textContent = 'Create Task';
             document.getElementById('taskStatusSection').style.display = 'none';
@@ -755,55 +751,84 @@
 
             document.getElementById('taskModal').style.display = 'flex';
         }
+        }
 
         function closeTaskModal() {
             document.getElementById('taskModal').style.display = 'none';
             document.getElementById('taskForm').reset();
             document.getElementById('taskId').value = '';
+            document.getElementById('editTaskId').value = '';
+        }
+
+        async function editTask(id) {
+            try {
+                const r = await fetch(`${API_URL}/api/tasks`);
+                const tasks = await r.json();
+                const task = tasks.find(t => t.id === id);
+
+                if (!task) {
+                    alert('Task not found');
+                    return;
+                }
+
+                // Fill form with task data
+                document.getElementById('taskTitle').value = task.title || '';
+                document.getElementById('taskDescription').value = task.description || '';
+                document.getElementById('taskAssignedTo').value = task.assigned_to || '';
+                document.getElementById('taskDueDate').value = task.due_date || '';
+                document.getElementById('taskPriority').value = task.priority || 'medium';
+                document.getElementById('editTaskId').value = id;
+
+                // Update modal title and button
+                document.getElementById('taskModalTitle').textContent = 'Edit Task';
+                document.getElementById('taskSubmitBtn').textContent = 'Update Task';
+
+                // Open modal
+                document.getElementById('taskModal').style.display = 'flex';
+            } catch (e) {
+                alert('Error loading task: ' + e.message);
+            }
+        }
         }
 
         async function submitTask(event) {
             event.preventDefault();
-            const taskId = document.getElementById('taskId').value;
+            const taskId = document.getElementById('taskId').value || document.getElementById('editTaskId').value;
             const task = {
                 title: document.getElementById('taskTitle').value,
                 description: document.getElementById('taskDescription').value,
                 assigned_to: document.getElementById('taskAssignedTo').value,
                 due_date: document.getElementById('taskDueDate').value,
-                priority: document.getElementById('taskPriority').value,
-                status: taskId ? document.getElementById('taskStatus').value : 'open'
+                priority: document.getElementById('taskPriority').value
             };
 
             try {
+                let r;
                 if (taskId) {
                     // Update existing task
-                    const r = await fetch(`${API_URL}/api/tasks/${taskId}`, {
+                    task.status = document.getElementById('taskStatus') ? document.getElementById('taskStatus').value : 'open';
+                    r = await fetch(`${API_URL}/api/tasks/${taskId}`, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(task)
                     });
-                    if (r.ok) {
-                        closeTaskModal();
-                        loadTasks();
-                    } else {
-                        alert('Error updating task');
-                    }
                 } else {
                     // Create new task
-                    const r = await fetch(`${API_URL}/api/tasks`, {
+                    task.status = 'open';
+                    r = await fetch(`${API_URL}/api/tasks`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(task)
                     });
-                    if (r.ok) {
-                        closeTaskModal();
-                        loadTasks();
-                    } else {
-                        alert('Error creating task');
-                    }
+                if (r.ok) {
+                    closeTaskModal();
+                    loadTasks();
+                } else {
+                    const err = await r.text();
+                    alert('Error saving task: ' + err);
                 }
             } catch (e) {
-                alert('Error: ' + e.message);
+                alert('Error saving task: ' + e.message);
             }
         }
 
@@ -822,6 +847,10 @@
                 if (r.ok) {
                     submissions = await r.json();
                 }
+            } catch (e) {
+                console.error('Submissions error:', e);
+                submissions = [];
+            }
             } catch (e) {
                 console.error('Submissions error:', e);
                 submissions = [];
@@ -881,7 +910,7 @@
                         <td style="padding: 15px; border-bottom: 1px solid #e0e0e0;"><span style="background: ${statusColor}20; color: ${statusColor}; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; text-transform: capitalize;">${t.status || 'open'}</span></td>
                         <td style="padding: 15px; border-bottom: 1px solid #e0e0e0;">
                             ${t.status !== 'completed' ? `<button class="btn btn-primary btn-small" onclick="completeTask(${t.id})">Complete</button>` : '<span style="color: #999; font-size: 12px;">Done</span>'}
-                            <button class="btn btn-small" style="background: #667eea; color: white; margin-left: 5px;" onclick="openEditTaskModal(${t.id}, '${t.title.replace(/'/g, "\\'")}', '${(t.description || '').replace(/'/g, "\\'")}', '${t.assigned_to || ''}', '${t.due_date || ''}', '${t.priority || 'medium'}', '${t.status || 'open'}')">Edit</button>
+                            <button class="btn btn-small" style="background: #667eea; color: white; margin-left: 5px;" onclick="editTask(${t.id})">Edit</button>
                             <button class="btn btn-small" style="background: #f44336; color: white; margin-left: 5px;" onclick="deleteTask(${t.id})">Delete</button>
                         </td>
                     </tr>

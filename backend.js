@@ -350,15 +350,17 @@ app.post('/api/form-submission', async (req, res) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     return res.status(400).json({
-      error: 'Invalid email format',
+      error: 'Invalid email format'
     });
   }
 
-  // Check rate limit (max 5 submissions per email per hour)
+  // Check rate limit: max 5 submissions per hour per email
   if (!checkSubmissionRateLimit(email, 5)) {
     return res.status(429).json({
       error: 'Too many submissions',
-      message: 'Maximum 5 submissions per email address per hour. Please try again later.',
+      message: 'Too many submissions from this email. Maximum 5 per hour allowed.'
+    });
+  }
     });
   }
 
@@ -398,10 +400,29 @@ app.post('/api/form-submission', async (req, res) => {
       console.log(`Contact already exists for ${email} - skipping duplicate insert`);
     }
 
+    // Send webhook to n8n workflow for Gmail notification (async, don't wait)
+    const n8nWebhookUrl = 'https://mvkjsk-2.app.n8n.cloud/webhook/crm-form-intake';
+    const webhookPayload = {
+      name: name,
+      email: email,
+      phone: phone || null,
+      message: message || null,
+      source: source || 'website',
+      submittedAt: new Date().toISOString()
+    };
+
+    // Fire-and-forget webhook (don't block response)
+    fetch(n8nWebhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(webhookPayload)
+    }).catch(err => console.error('n8n webhook error:', err));
+
     // Respond immediately to user (database operations complete)
     res.status(201).json({
       success: true,
-      message: 'Form submission received. Email confirmation will be sent shortly.',
+      message: 'Form submission received. Email confirmation will be sent shortly.'
+    });
     });
 
     // Send webhook to n8n in background with timeout protection
@@ -793,8 +814,6 @@ app.post('/api/admin/cleanup-database', async (req, res) => {
     res.status(500).json({ error: 'Cleanup failed', message: error.message });
   }
 });
-
-
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
