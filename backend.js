@@ -38,6 +38,30 @@ db.run('PRAGMA foreign_keys = ON');
 // Flag to track if database is initialized
 let dbInitialized = false;
 
+// In-memory rate limiting for form submissions (simple implementation)
+const submissionLimits = new Map(); // key: email, value: { timestamps: [] }
+
+function checkSubmissionRateLimit(email, maxPerHour) {
+    const now = Date.now();
+    const oneHourAgo = now - (60 * 60 * 1000);
+
+    if (!submissionLimits.has(email)) {
+          submissionLimits.set(email, { timestamps: [now] });
+          return true;
+    }
+
+    const emailData = submissionLimits.get(email);
+    // Remove timestamps older than 1 hour
+    emailData.timestamps = emailData.timestamps.filter(ts => ts > oneHourAgo);
+
+    if (emailData.timestamps.length < maxPerHour) {
+          emailData.timestamps.push(now);
+          return true;
+    }
+
+    return false;
+}
+
 // Promisify database operations
 function dbRun(sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -78,6 +102,7 @@ async function initializeDatabase() {
         name TEXT NOT NULL,
         email TEXT NOT NULL,
         phone TEXT,
+                company TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
