@@ -700,6 +700,101 @@ app.post('/api/cleanup-duplicates', async (req, res) => {
   }
 });
 
+// Database Cleanup Endpoint - Remove duplicate records
+app.post('/api/admin/cleanup-database', async (req, res) => {
+  try {
+    console.log('🔍 Starting database cleanup...');
+
+    const contactsBefore = await dbGet('SELECT COUNT(*) as count FROM contacts');
+    const submissionsBefore = await dbGet('SELECT COUNT(*) as count FROM form_submissions');
+    const leadsBefore = await dbGet('SELECT COUNT(*) as count FROM leads');
+
+    console.log(`Before cleanup: Contacts=${contactsBefore.count}, Submissions=${submissionsBefore.count}, Leads=${leadsBefore.count}`);
+
+    // Remove duplicate contacts
+    const duplicateContacts = await dbAll(`
+      SELECT email, COUNT(*) as count, MIN(id) as keep_id, GROUP_CONCAT(id) as all_ids
+      FROM contacts WHERE email IS NOT NULL AND email != '' GROUP BY LOWER(email) HAVING count > 1
+    `);
+
+    let contactsDeleted = 0;
+    for (const row of duplicateContacts) {
+      const ids = row.all_ids.split(',').map(id => parseInt(id));
+      const idsToDelete = ids.filter(id => id !== row.keep_id);
+      if (idsToDelete.length > 0) {
+        const result = await dbRun(`DELETE FROM contacts WHERE id IN (${idsToDelete.map(() => '?').join(',')})`, idsToDelete);
+        contactsDeleted += result.changes;
+      }
+    }
+    console.log(`✓ Deleted ${contactsDeleted} duplicate contacts`);
+
+    // Remove duplicate submissions
+    const duplicateSubmissions = await dbAll(`
+      SELECT email, COUNT(*) as count, MIN(id) as keep_id, GROUP_CONCAT(id) as all_ids
+      FROM form_submissions WHERE email IS NOT NULL AND email != '' GROUP BY LOWER(email) HAVING count > 1
+    `);
+
+    let submissionsDeleted = 0;
+    for (const row of duplicateSubmissions) {
+      const ids = row.all_ids.split(',').map(id => parseInt(id));
+      const idsToDelete = ids.filter(id => id !== row.keep_id);
+      if (idsToDelete.length > 0) {
+        const result = await dbRun(`DELETE FROM form_submissions WHERE id IN (${idsToDelete.map(() => '?').join(',')})`, idsToDelete);
+        submissionsDeleted += result.changes;
+      }
+    }
+    console.log(`✓ Deleted ${submissionsDeleted} duplicate submissions`);
+
+    // Remove duplicate leads
+    const duplicateLeads = await dbAll(`
+      SELECT email, COUNT(*) as count, MIN(id) as keep_id, GROUP_CONCAT(id) as all_ids
+      FROM leads WHERE email IS NOT NULL AND email != '' GROUP BY LOWER(email) HAVING count > 1
+    `);
+
+    let leadsDeleted = 0;
+    for (const row of duplicateLeads) {
+      const ids = row.all_ids.split(',').map(id => parseInt(id));
+      const idsToDelete = ids.filter(id => id !== row.keep_id);
+      if (idsToDelete.length > 0) {
+        const result = await dbRun(`DELETE FROM leads WHERE id IN (${idsToDelete.map(() => '?').join(',')})`, idsToDelete);
+        leadsDeleted += result.changes;
+      }
+    }
+    console.log(`✓ Deleted ${leadsDeleted} duplicate leads`);
+
+    // Remove records without email
+    const noEmailContacts = await dbRun('DELETE FROM contacts WHERE email IS NULL OR email = ""');
+    const noEmailSubmissions = await dbRun('DELETE FROM form_submissions WHERE email IS NULL OR email = ""');
+    const noEmailLeads = await dbRun('DELETE FROM leads WHERE email IS NULL OR email = ""');
+
+    const contactsAfter = await dbGet('SELECT COUNT(*) as count FROM contacts');
+    const submissionsAfter = await dbGet('SELECT COUNT(*) as count FROM form_submissions');
+    const leadsAfter = await dbGet('SELECT COUNT(*) as count FROM leads');
+
+    console.log(`After cleanup: Contacts=${contactsAfter.count}, Submissions=${submissionsAfter.count}, Leads=${leadsAfter.count}`);
+
+    res.json({
+      success: true,
+      message: 'Database cleanup completed',
+      before: { contacts: contactsBefore.count, submissions: submissionsBefore.count, leads: leadsBefore.count },
+      after: { contacts: contactsAfter.count, submissions: submissionsAfter.count, leads: leadsAfter.count },
+      deleted: {
+        duplicateContacts: contactsDeleted,
+        duplicateSubmissions: submissionsDeleted,
+        duplicateLeads: leadsDeleted,
+        noEmailContacts: noEmailContacts.changes,
+        noEmailSubmissions: noEmailSubmissions.changes,
+        noEmailLeads: noEmailLeads.changes
+      }
+    });
+
+  } catch (error) {
+    console.error('Cleanup error:', error.message);
+    res.status(500).json({ error: 'Cleanup failed', message: error.message });
+  }
+});
+
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
