@@ -554,7 +554,7 @@ app.post('/api/tasks', async (req, res) => {
 // Update task
 app.put('/api/tasks/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, assigned_to, due_date, priority, status } = req.body;
+  const { title, description, assigned_to, due_date, priority, status } = req.body;
 
   try {
     if (!dbInitialized) {
@@ -562,8 +562,8 @@ app.put('/api/tasks/:id', async (req, res) => {
     }
 
     await dbRun(
-      'UPDATE tasks SET title = ?, assigned_to = ?, due_date = ?, priority = ?, status = ? WHERE id = ?',
-      [title, assigned_to, due_date, priority, status, id]
+      'UPDATE tasks SET title = ?, description = ?, assigned_to = ?, due_date = ?, priority = ?, status = ? WHERE id = ?',
+      [title, description || null, assigned_to, due_date, priority, status, id]
     );
     res.json({
       success: true,
