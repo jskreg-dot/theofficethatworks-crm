@@ -434,8 +434,10 @@ app.put('/api/tasks/:id', async (req, res) => {
     }
 
     await dbRun(
-      'UPDATE tasks SET title = ?, description = ?, assigned_to = ?, due_date = ?, priority = ?, status = ? WHERE id = ?',      [title, assigned_to, due_date, priority, status, id]
-      [title, description || null, assigned_to, due_date, priority, status, id]    res.json({
+      'UPDATE tasks SET title = ?, description = ?, assigned_to = ?, due_date = ?, priority = ?, status = ? WHERE id = ?',      [title, description || null, assigned_to, due_date, priority, status, id]    res.json({
+              [title, description || null, assigned_to, due_date, priority, status, id]
+                    );
+        res.json({
       success: true,
       message: 'Task updated',
     });
